@@ -1,7 +1,8 @@
-import os
+import os, math
 import pandas
 from datetime import datetime
 import numpy as np
+import plotly
 import plotly.express as px
 import plotly.graph_objects as go
 
@@ -23,6 +24,9 @@ impedance_parameters = ['Param0', 'Param1', 'AbsZ', 'RealZ', 'ImagZ', 'PhaseZ']
 # direcory to save CSV
 SAVE_DIRECTORY = "./saved"
 
+# number of well per group
+GROUPS_SIZE = 3
+
 # format for date hours
 fmt = '%Y-%m-%d %H:%M:%S'
 
@@ -30,13 +34,17 @@ app = dash.Dash(external_stylesheets=[dbc.themes.BOOTSTRAP], background_callback
 app.layout = html.Div(
     [
         dcc.Store(id='path'),
+        dcc.Store(id='groups'),
         html.H1("File Browser"),
         html.H2("Set path"),
         html.Div([
-            dcc.Input(id="input-path", type="text", debounce=True, style={'width' : '70%'}),
+            dcc.Input(id="input-path", type="text", debounce=True, style={'width' : '60%'}),
             dbc.Button("Confirmation", id="confirmation-button", n_clicks=0),
+            html.Div([
+                dbc.Spinner(id="spinner", size="md"),
+            ], id="spinner-container", style={'display': 'none'}),
         ]),
-        
+
         html.Div([
             html.H3("Collecting measurements..."),
             dbc.Progress(id="animated-progress-bar", style={'width' : '70%'}),
@@ -48,20 +56,98 @@ app.layout = html.Div(
         ], id="process-progress-bar-container", style={'display': 'none'}),
 
         html.Div([
-            dcc.Dropdown([], [], id="frequency-dropdown", multi=True),
+            dcc.Dropdown([], [], id="frequency-dropdown", multi=True, style={'width' : '80%'}),
         ], id="frequency-dropdown-container", style={'display': 'none'}),
 
         html.Div([
             html.Div([
-                daq.BooleanSwitch(id="boolean-average", on=True, label="Grouped wells", labelPosition="top"),
-                daq.BooleanSwitch(id="boolean-std", on=True, label="Display std", labelPosition="top"),
+                daq.BooleanSwitch(id="boolean-average", on=False, label="Grouped wells", labelPosition="top"),
+                daq.BooleanSwitch(id="boolean-std", on=False, label="Display std", labelPosition="top"),
+                html.Div([
+                    dcc.Slider(id='std-slider', min=None, max=None, step=None),
+                ], id="std-slider-container", style={'display': 'none'}),
             ]),
-            dcc.RadioItems(id="normalize-option", options=['raw', 't0', 'impedence-max'], value='raw'),
-            dcc.Graph(id='impedence-plot'),
+            dcc.RadioItems(id="normalize-option", options=['AbsZ', 'AbsZ_t0', 'AbsZ_max', 'AbsZ_min_max'], value='AbsZ'),
+                dcc.Graph(id='impedence-plot'),
         ], id="impedence-plot-container", style={'display': 'none'}),
     ],
     style={"max-width": "90"},
 )
+
+def AbsZ(absz, **kwargs):
+    return absz
+    
+def AbsZ_t0(absz, absz_t0, **kwargs):
+    return absz / absz_t0
+
+def AbsZ_max(absz, absz_max, **kwargs):
+    return absz / absz_max
+    
+def AbsZ_min_max(absz, absz_min, absz_max, **kwargs):
+    return (absz - absz_min) / (absz_max - absz_min)
+
+def filter_frequency(df, frequency):
+    if isinstance(frequency, list):
+        return df[df["Frequency"].isin(frequency)]
+    elif isinstance(frequency, float) or isinstance(frequency, int):
+        return df[df["Frequency"] == frequency]
+    else:
+        raise ValueError(f"Type of frequency ({type(frequency)}) in data is incorrect.")
+
+def get_figure(df: pandas.DataFrame,
+               normalize: str,
+               std: bool = False,
+               std_step: int = 1,
+               **kwargs):
+    if len(df["Frequency"].unique()) == 1:
+        fig = go.Figure()
+        for i, well in enumerate(df["Well"].unique()):
+            well_df = df[df["Well"] == well]
+            
+            color = px.colors.qualitative.Dark24[i]
+        
+            if std:
+                error_color = plotly.colors.hex_to_rgb(color)
+                error_color = error_color + (0.5,)
+                error_color = "rgba(" + ",".join(map(str, error_color)) + ")"
+                
+                error_y = dict(type='data',
+                               array=well_df[f"{normalize}_std"].values[::std_step],
+                               color=error_color,
+                               thickness=0.8,
+                               width=3)
+            else:
+                error_y = None
+            
+            fig.add_trace(go.Scatter(
+                x=well_df["dt"].values[::std_step],
+                y=well_df[normalize].values[::std_step],
+                mode='lines',
+                line=dict(color=color),
+                name=well,
+                error_y=error_y,))
+    elif len(df["Frequency"].unique()) > 1:
+        # select rows with frequency value
+        data = []
+        for frq in df["Frequency"].unique():
+            dff = df[df['Frequency'] == frq]
+            for well in dff["Well"].unique():
+                well_df = dff[dff["Well"] == well]
+                data.append(go.Scatter3d(x=well_df["dt"].values,
+                                         y=np.full(len(well_df["dt"].values), frq),
+                                         z=well_df[normalize].values,
+                                         name="{} ({:.2f})".format(well, frq),
+                                         legendgroup=str(frq),
+                                         legendgrouptitle_text="{:.2f} Hz".format(frq),
+                                         marker=dict(size=1)))
+
+        fig = go.Figure(data=data)
+        fig.update_layout(autosize=False, width=1200, height=800)
+        fig.update_layout(legend=dict(groupclick="toggleitem"))
+    else:
+        raise ValueError("Number of 'frequency' in data is wrong.")
+
+    return fig
 
 
 @app.callback(
@@ -130,6 +216,7 @@ def update_output(nclicks, path_):
                 dff = df[(df["Frequency"] == frq) & (df["Well"] == well)]
                 
                 absz_max = dff["AbsZ"].max()
+                absz_min = dff["AbsZ"].min()
                 t0 = datetime.strptime(dff["Date"].min(), fmt)
                 absz_t0 = dff.loc[dff[dff["Date"] == dff["Date"].min()].index[0], "AbsZ"]
                 
@@ -137,9 +224,11 @@ def update_output(nclicks, path_):
                     i = dff[dff["Date"] == d].index.values[0]
                     dt = datetime.strptime(dff.loc[i, "Date"], fmt) - t0
                     
+                    df.loc[i, "index"] = idx
                     df.loc[i, "dt"] = (dt.days * 24 * 60) + (dt.seconds / 60)
-                    df.loc[i, "AbsZ_t0"] = df.loc[i, "AbsZ"] / absz_t0
-                    df.loc[i, "AbsZ_max"] = df.loc[i, "AbsZ"] / absz_max
+                    df.loc[i, "AbsZ_t0"] = AbsZ_t0(df.loc[i, "AbsZ"], absz_t0)
+                    df.loc[i, "AbsZ_max"] = AbsZ_max(df.loc[i, "AbsZ"], absz_max)
+                    df.loc[i, "AbsZ_min_max"] = AbsZ_min_max(df.loc[i, "AbsZ"], absz_min, absz_max)
     
             # update loading bar
             perc = int(((j+1) / len(df["Frequency"].unique())) * 100)
@@ -157,73 +246,81 @@ def update_output(nclicks, path_):
 
 
 @app.callback(
-    Output("impedence-plot", "figure"),
-    [Input("frequency-dropdown", "value"), Input("normalize-option", "value"), State('path', 'data')],
+    [Output("std-slider-container", "style"), Output("std-slider", "min"), Output("std-slider", "max"), 
+     Output("std-slider", "step"), Output("std-slider", "value")],
+    Input("boolean-std", "on"),
+    prevent_initial_call=True,
+)
+def update_std_slider(value):
+    if value:
+        # show slider
+        return {'display': 'block'}, 1, 50, 5, 1
+    else:
+        # hide slider
+        return {'display': 'none'}, None, None, None, None
+
+
+@app.callback(
+    [Output("impedence-plot", "figure"), Output("impedence-plot-container", "style"), Output("groups", "data")],
+    [
+        Input("boolean-average", "on"),
+        Input("boolean-std", "on"),
+        Input("std-slider", "value"),
+        Input("frequency-dropdown", "value"),
+        Input("normalize-option", "value"),
+        State('path', 'data'),
+        State("groups", "data"),
+    ],
     background=True,
     prevent_initial_call=True,
 )
-def update_plot(value, normalize, path_):
+def update_plot_groups(average_boolean, std_boolean, std_value, frequency, normalize, path_, groups):
+    # show spinner
+    set_props("spinner-container", {'style': {'display': 'block'}})
+
+    # load data
     df = pandas.read_csv(path_)
-    
-    if isinstance(value, int):
-        dff = df[df["Frequency"] == value]
 
-        if normalize == "t0":
-            fig = px.line(dff, x="dt", y="AbsZ_t0", color="Well")
-        elif normalize == "impedence-max":
-            fig = px.line(dff, x="dt", y="AbsZ_max", color="Well")
-        else:
-            fig = px.line(dff, x="dt", y="AbsZ", color="Well")
-    elif isinstance(value, list):
-        if normalize == "t0":
-            z = "AbsZ_t0"
-        elif normalize == "impedence-max":
-            z = "AbsZ_max"
-        else:
-            z = "AbsZ"
+    # filter frequencies
+    dff = filter_frequency(df, frequency)
         
-        # select rows with frequency value
-        data = []
-        for frq in value:
-            dff = df[df['Frequency'] == frq]
-            for well in dff["Well"].unique():
-                dfff = dff[dff["Well"] == well]
-                data.append(go.Scatter3d(x=dfff["dt"].values,
-                                         y=np.full(len(dfff["dt"].values), frq),
-                                         z=dfff[z].values,
-                                         name="{} ({:.2f})".format(well, frq),
-                                         legendgroup=str(frq),
-                                         legendgrouptitle_text="{:.2f} Hz".format(frq),
-                                         marker=dict(size=1)))
+    if average_boolean:
+        if groups is None:
+            # create groups of wells
+            groups = dff["Well"].unique()
+            groups = np.array_split(groups, indices_or_sections=math.ceil(len(groups) / GROUPS_SIZE))
 
-        fig = go.Figure(data=data)
-        fig.update_layout(autosize=False, width=1200, height=800)
-        fig.update_layout(legend=dict(groupclick="toggleitem"))
+            # average values of impedence
+            groups_df = pandas.DataFrame()
+            for group in groups:
+                group_name = "(" + ",".join(group) + ")"
+                for frq in dff["Frequency"].unique():
+                    dfff = dff[dff["Well"].isin(group) & dff["Frequency"] == frq]
+                    for idx in dfff["index"].unique():
+                        group_idx_df = dfff[dfff["index"] == idx]
+                        new_line = dict(group_idx_df.iloc[0])
+                        new_line["Well"] = group_name
+                        new_line[normalize] = np.mean(group_idx_df[normalize])
+                        new_line.update({f"{normalize}_std" : np.std(group_idx_df[normalize])})
+                        groups_df = pandas.concat((groups_df, pandas.DataFrame([new_line])), ignore_index=True)
+            
+            # replace DataFrame with groups DataFrame
+            dff = groups_df
+        else:
+            # average has already been done
+            dff = dff[dff["Well"].isin(groups)]
+        
+        fig = get_figure(df=dff, normalize=normalize, std=std_boolean, std_step=std_value)
+        return fig, {'display': 'block'}, {'display': 'block'}, groups
     else:
-        raise ValueError("Variable 'value' given is neither scalar or list.")
-
-    # show plot figure container
-    set_props("impedence-plot-container", {'style': {'display': 'block'}})
+        fig = get_figure(df=dff, normalize=normalize)
+        groups = None
     
-    return  fig
+    # hide spinner
+    set_props("spinner-container", {'style': {'display': 'none'}})
+    
+    return fig, {'display': 'block'}, groups
 
-# TODO
-# @app.callback(
-#     Output("impedence-plot", "figure"),
-#     [Input("boolean-average", "on"), State("normalize-option", "value"), State('path', 'data')],
-#     prevent_initial_call=True,
-# )
-# def update_plot_average(value, normalize, path_):
-#     pass
-
-# TODO
-# @app.callback(
-#     Output("impedence-plot", "figure"),
-#     [Input("boolean-std", "on"), State("normalize-option", "value"), State('path', 'data')],
-#     prevent_initial_call=True,
-# )
-# def update_plot_std(value, normalize, path_):
-#     pass
 
 if __name__ == "__main__":
     # Set debug=False before compiling into exe file
