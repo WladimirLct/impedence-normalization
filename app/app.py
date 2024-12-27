@@ -274,7 +274,7 @@ def update_std_slider(value):
     background=True,
     prevent_initial_call=True,
 )
-def update_plot_groups(average_boolean, std_boolean, std_value, frequency, normalize, path_, groups):
+def update_plot(average_boolean, std_boolean, std_value, frequency, normalize, path_, groups):
     # show spinner
     set_props("spinner-container", {'style': {'display': 'block'}})
 
@@ -282,40 +282,36 @@ def update_plot_groups(average_boolean, std_boolean, std_value, frequency, norma
     df = pandas.read_csv(path_)
 
     # filter frequencies
-    dff = filter_frequency(df, frequency)
+    df = filter_frequency(df, frequency)
         
     if average_boolean:
         if groups is None:
             # create groups of wells
-            groups = dff["Well"].unique()
+            groups = df["Well"].unique()
             groups = np.array_split(groups, indices_or_sections=math.ceil(len(groups) / GROUPS_SIZE))
 
-            # average values of impedence
-            groups_df = pandas.DataFrame()
-            for group in groups:
-                group_name = "(" + ",".join(group) + ")"
-                for frq in dff["Frequency"].unique():
-                    dfff = dff[dff["Well"].isin(group) & dff["Frequency"] == frq]
-                    for idx in dfff["index"].unique():
-                        group_idx_df = dfff[dfff["index"] == idx]
-                        new_line = dict(group_idx_df.iloc[0])
-                        new_line["Well"] = group_name
-                        new_line[normalize] = np.mean(group_idx_df[normalize])
-                        new_line.update({f"{normalize}_std" : np.std(group_idx_df[normalize])})
-                        groups_df = pandas.concat((groups_df, pandas.DataFrame([new_line])), ignore_index=True)
-            
-            # replace DataFrame with groups DataFrame
-            dff = groups_df
-        else:
-            # average has already been done
-            dff = dff[dff["Well"].isin(groups)]
+        # average values of impedence
+        groups_df = pandas.DataFrame()
+        for group in groups:
+            group_name = "(" + ",".join(group) + ")"
+            for frq in df["Frequency"].unique():
+                dfff = df[(df["Well"].isin(group)) & (df["Frequency"] == frq)]
+                for idx in dfff["index"].unique():
+                    group_idx_df = dfff[dfff["index"] == idx]
+                    new_line = dict(group_idx_df.iloc[0])
+                    new_line["Well"] = group_name
+                    new_line[normalize] = np.mean(group_idx_df[normalize])
+                    new_line.update({f"{normalize}_std" : np.std(group_idx_df[normalize])})
+                    groups_df = pandas.concat((groups_df, pandas.DataFrame([new_line])), ignore_index=True)
         
-        fig = get_figure(df=dff, normalize=normalize, std=std_boolean, std_step=std_value)
-        return fig, {'display': 'block'}, {'display': 'block'}, groups
+        # replace DataFrame with groups DataFrame
+        df = groups_df
+        
+        # create figure with std bars
+        fig = get_figure(df=df, normalize=normalize, std=std_boolean, std_step=std_value)
     else:
-        fig = get_figure(df=dff, normalize=normalize)
-        groups = None
-    
+        fig = get_figure(df=df, normalize=normalize)
+        
     # hide spinner
     set_props("spinner-container", {'style': {'display': 'none'}})
     
