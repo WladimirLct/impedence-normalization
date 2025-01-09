@@ -121,26 +121,57 @@ def get_figure(df: pandas.DataFrame,
                 error_y = None
             
             fig.add_trace(go.Scatter(
-                x=well_df["dt"].values[::std_step],
+                x=well_df["hours"].values[::std_step],
                 y=well_df[normalize].values[::std_step],
                 mode='lines',
                 line=dict(color=color),
                 name=well,
-                error_y=error_y,))
+                error_y=error_y,
+                customdata=well_df[["AbsZ", "hours", "minutes", "seconds"]].values[::std_step],
+                hovertemplate=
+                "<b>Impedance</b><br>" +
+                "%{customdata[0]}<br><br>" +
+                "<b>Time</b><br>" +
+                "%{customdata[1]:02d}:%{customdata[2]:02d}:%{customdata[3]:02d}",))
     elif len(df["Frequency"].unique()) > 1:
         # select rows with frequency value
         data = []
-        for frq in df["Frequency"].unique():
+        for i, frq in enumerate(df["Frequency"].unique()):
             dff = df[df['Frequency'] == frq]
-            for well in dff["Well"].unique():
+            
+            for j, well in enumerate(dff["Well"].unique()):
                 well_df = dff[dff["Well"] == well]
-                data.append(go.Scatter3d(x=well_df["dt"].values,
-                                         y=np.full(len(well_df["dt"].values), frq),
-                                         z=well_df[normalize].values,
+
+                color = px.colors.qualitative.Dark24[i * len(dff["Well"].unique()) + j]
+            
+                if std:
+                    error_color = plotly.colors.hex_to_rgb(color)
+                    error_color = error_color + (0.5,)
+                    error_color = "rgba(" + ",".join(map(str, error_color)) + ")"
+                    
+                    error_z = dict(type='data',
+                                array=well_df[f"{normalize}_std"].values[::std_step],
+                                color=error_color,
+                                thickness=0.9,
+                                width=3)
+                else:
+                    error_z = None
+                
+                data.append(go.Scatter3d(x=well_df["hours"].values[::std_step],
+                                         y=np.full(len(well_df["hours"].values[::std_step]), frq),
+                                         z=well_df[normalize].values[::std_step],
                                          name="{} ({:.2f})".format(well, frq),
                                          legendgroup=str(frq),
                                          legendgrouptitle_text="{:.2f} Hz".format(frq),
-                                         marker=dict(size=1)))
+                                         marker=dict(size=1),
+                                         line=dict(color=color),
+                                         error_z=error_z,
+                                         customdata=well_df[["AbsZ", "hours", "minutes", "seconds"]].values[::std_step],
+                                         hovertemplate=
+                                         "<b>Impedance</b><br>" +
+                                         "%{customdata[0]}<br><br>" +
+                                         "<b>Time</b><br>" +
+                                         "%{customdata[1]:02d}:%{customdata[2]:02d}:%{customdata[3]:02d}",))
 
         fig = go.Figure(data=data)
         fig.update_layout(legend=dict(groupclick="toggleitem"))
@@ -226,7 +257,10 @@ def update_output(nclicks, path_):
                     dt = datetime.strptime(dff.loc[i, "Date"], fmt) - t0
                     
                     df.loc[i, "index"] = idx
-                    df.loc[i, "dt"] = (dt.days * 24 * 60) + (dt.seconds / 60)
+                    df.loc[i, "hours"] = dt.days * 24 + dt.seconds / 3600
+                    df.loc[i, "minutes"] = (dt.seconds % 3600) / 60
+                    df.loc[i, "seconds"] = dt.seconds % 60
+
                     df.loc[i, "AbsZ_t0"] = AbsZ_t0(df.loc[i, "AbsZ"], absz_t0)
                     df.loc[i, "AbsZ_max"] = AbsZ_max(df.loc[i, "AbsZ"], absz_max)
                     df.loc[i, "AbsZ_min_max"] = AbsZ_min_max(df.loc[i, "AbsZ"], absz_min, absz_max)
