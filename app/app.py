@@ -5,6 +5,7 @@ import numpy as np
 import plotly
 import plotly.express as px
 import plotly.graph_objects as go
+import webbrowser
 
 import dash
 from dash import set_props, DiskcacheManager, html, dcc
@@ -142,11 +143,11 @@ def get_figure(df: pandas.DataFrame,
                                          marker=dict(size=1)))
 
         fig = go.Figure(data=data)
-        fig.update_layout(autosize=False, width=1200, height=800)
         fig.update_layout(legend=dict(groupclick="toggleitem"))
     else:
         raise ValueError("Number of 'frequency' in data is wrong.")
 
+    fig.update_layout(autosize=False, width=1200, height=600)
     return fig
 
 
@@ -271,12 +272,12 @@ def update_std_slider(value):
         State('path', 'data'),
         State("groups", "data"),
     ],
-    background=True,
+    #background=True,   # this may cause PID problems
     prevent_initial_call=True,
 )
 def update_plot(average_boolean, std_boolean, std_value, frequency, normalize, path_, groups):
     # show spinner
-    set_props("spinner-container", {'style': {'display': 'block'}})
+    #set_props("spinner-container", {'style': {'display': 'block'}})
 
     # load data
     df = pandas.read_csv(path_)
@@ -313,11 +314,14 @@ def update_plot(average_boolean, std_boolean, std_value, frequency, normalize, p
         fig = get_figure(df=df, normalize=normalize)
         
     # hide spinner
-    set_props("spinner-container", {'style': {'display': 'none'}})
+    #set_props("spinner-container", {'style': {'display': 'none'}})
     
     return fig, {'display': 'block'}, groups
 
 
 if __name__ == "__main__":
+    url = "127.0.0.1"
+    port = 8050
+    webbrowser.open_new(f'http://{url}:{port}/')
     # Set debug=False before compiling into exe file
-    app.run_server(debug=True, port=8050)
+    app.run_server(debug=True, host=url, port=port)
