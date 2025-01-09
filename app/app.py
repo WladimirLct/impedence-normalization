@@ -358,4 +358,4 @@ if __name__ == "__main__":
     port = 8050
     webbrowser.open_new(f'http://{url}:{port}/')
     # Set debug=False before compiling into exe file
-    app.run_server(debug=True, host=url, port=port)
+    app.run_server(debug=False, host=url, port=port)
