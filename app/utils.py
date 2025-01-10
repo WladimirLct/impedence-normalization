@@ -1,11 +1,9 @@
 import os
 import pandas as pd
-import numpy as np
 import glob
 import regex as re
 from io import StringIO
 from datetime import datetime
-import plotly.graph_objects as go
 
 # 3. Define Helper Functions
 # These functions handle reading data files, extracting measurement times, and loading data for each well.
