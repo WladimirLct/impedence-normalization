@@ -1,11 +1,6 @@
-
-/.ipynb_checkpoints
-data/
-/__pycache__
-/app/.ipynb_checkpoints
-/app/__pycache__
-/app/build
-/app/cache
-/app/dist
-*.csv
-/app/saved
+data/*
+.ipynb_checkpoints/*
+__pycache__/*
+app/cache/*
+app/__pycache__/*
+app/.ipynb_checkpoints/*
