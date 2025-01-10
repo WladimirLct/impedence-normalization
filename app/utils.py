@@ -1,6 +1,5 @@
-import os
+import os, glob
 import pandas as pd
-import glob
 import regex as re
 from io import StringIO
 from datetime import datetime

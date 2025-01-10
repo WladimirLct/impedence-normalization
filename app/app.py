@@ -31,6 +31,10 @@ GROUPS_SIZE = 3
 # format for date hours
 fmt = '%Y-%m-%d %H:%M:%S'
 
+# parameters for app run
+URL = "127.0.0.1"
+PORT = 8050
+
 app = dash.Dash(external_stylesheets=[dbc.themes.BOOTSTRAP], background_callback_manager=background_callback_manager)
 app.layout = html.Div(
     [
@@ -41,9 +45,6 @@ app.layout = html.Div(
         html.Div([
             dcc.Input(id="input-path", type="text", debounce=True, style={'width' : '60%'}),
             dbc.Button("Confirmation", id="confirmation-button", n_clicks=0),
-            html.Div([
-                dbc.Spinner(id="spinner", size="md"),
-            ], id="spinner-container", style={'display': 'none'}),
         ]),
 
         html.Div([
@@ -246,7 +247,7 @@ def update_output(nclicks, path_):
     
         # normalize data
         set_props("process-progress-bar-container", {'style': {'display': 'block'}})
-        for j, frq in enumerate(df["Frequency"].unique()[:10]):
+        for j, frq in enumerate(df["Frequency"].unique()):
             for well in df["Well"].unique():
                 dff = df[(df["Frequency"] == frq) & (df["Well"] == well)]
                 
@@ -313,9 +314,6 @@ def update_std_slider(value):
     prevent_initial_call=True,
 )
 def update_plot(average_boolean, std_boolean, std_value, frequency, normalize, path_, groups):
-    # show spinner
-    #set_props("spinner-container", {'style': {'display': 'block'}})
-
     # load data
     df = pandas.read_csv(path_)
 
@@ -350,16 +348,11 @@ def update_plot(average_boolean, std_boolean, std_value, frequency, normalize, p
     else:
         fig = get_figure(df=df, normalize=normalize)
         
-    # hide spinner
-    #set_props("spinner-container", {'style': {'display': 'none'}})
-    
     return fig, {'display': 'block'}, groups
 
 
 if __name__ == "__main__":
-    url = "127.0.0.1"
-    port = 8050
-    webbrowser.open_new(f'http://{url}:{port}/')
+    webbrowser.open_new(f'http://{URL}:{PORT}/')
     
     # Set debug=False before compiling into exe file
-    app.run_server(debug=False, host=url, port=port)
+    app.run_server(debug=False, host=URL, port=PORT)
