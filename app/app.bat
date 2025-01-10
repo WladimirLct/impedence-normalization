@@ -1,1 +1,1 @@
-start "" dist/app/app.exe
+start "" imped-norm/python.exe app.py
