@@ -1,3 +1,7 @@
+## Installation
+
+Pour installer l'outil sur votre ordinateur, il vous suffit de télécharger le code en format ZIP, et de le dézipper sur votre ordinateur. Pour celà, cliquez sur le boutton vert nommé **Code** et sélectionnez **Download ZIP**.
+
 ## Lancement de l'interface
 
 Dans le dossier `app` se trouve un fichier `app.bat`. Exécutez ce fichier (double-clique) afin de lancer l'application. Un nouvel onglet s'ouvre dans le navigateur par défaut de l'ordinateur avec l'URL `http://127.0.0.1:8050/`. Cette URL, ainsi que le port, peuvent être modifiés dans le script `app.py` se trouvant dans le dossier `app`.
