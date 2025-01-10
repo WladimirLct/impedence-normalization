@@ -1,10 +1,8 @@
-import os, math, glob
-import regex as re
+import os, math
 import pandas
 from datetime import datetime
 import numpy as np
 import webbrowser
-from io import StringIO
 
 import plotly
 import plotly.express as px
