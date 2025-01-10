@@ -25,7 +25,7 @@ background_callback_manager = DiskcacheManager(cache)
 impedance_parameters = ['Param0', 'Param1', 'AbsZ', 'RealZ', 'ImagZ', 'PhaseZ']
 
 # direcory to save CSV
-SAVE_DIRECTORY = "./saved"
+SAVE_DIRECTORY = "./csv"
 
 # number of well per group
 GROUPS_SIZE = 3
