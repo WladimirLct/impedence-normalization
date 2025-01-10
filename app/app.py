@@ -1,12 +1,14 @@
-import os, math
+import os, math, glob
+import regex as re
 import pandas
 from datetime import datetime
 import numpy as np
+import webbrowser
+from io import StringIO
+
 import plotly
 import plotly.express as px
 import plotly.graph_objects as go
-import webbrowser
-
 import dash
 from dash import set_props, DiskcacheManager, html, dcc
 from dash.dependencies import Input, Output, State
@@ -193,7 +195,10 @@ def update_output(nclicks, path_):
         experiment_path = path_
     else:
         raise FileNotFoundError("Experiment folder not found ({}).".format(path_))
-
+    
+    if not os.path.exists(SAVE_DIRECTORY):
+        os.makedirs(SAVE_DIRECTORY, exist_ok=True)
+    
     base, name = os.path.split(path_)
     save_path = os.path.join(SAVE_DIRECTORY, f"{name}.csv")
     
@@ -357,5 +362,6 @@ if __name__ == "__main__":
     url = "127.0.0.1"
     port = 8050
     webbrowser.open_new(f'http://{url}:{port}/')
+    
     # Set debug=False before compiling into exe file
     app.run_server(debug=False, host=url, port=port)
