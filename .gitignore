@@ -4,3 +4,4 @@ __pycache__/*
 app/cache/*
 app/__pycache__/*
 app/.ipynb_checkpoints/*
+# executable/analysis_results/*.csv
