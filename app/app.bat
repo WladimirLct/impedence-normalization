@@ -1,1 +1,0 @@
-start "" imped-norm/python.exe app.py
