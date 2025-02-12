@@ -17,6 +17,7 @@ from app_instance import app, data_cache  # Import both app and cache from app_i
 import plotly.express as px  # Import Plotly Express for plotting
 
 # Stats page layout
+
 stats_layout = dbc.Container([
     dbc.Row([
         dbc.Col(
