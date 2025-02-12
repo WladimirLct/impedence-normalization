@@ -115,6 +115,7 @@ main_layout = dbc.Container([
         ),
 
         # Right Column - Visualization & Controls
+        
         dbc.Col(
             [
                 # Control Panel Card
