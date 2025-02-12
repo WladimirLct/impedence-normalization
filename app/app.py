@@ -62,6 +62,7 @@ def open_browser():
         browser_opened = True  # Set the flag to True
 
 if __name__ == '__main__':
+    
     import multiprocessing
     multiprocessing.freeze_support()  # <-- Enables proper behavior in frozen apps
 
