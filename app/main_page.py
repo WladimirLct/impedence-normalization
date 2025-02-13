@@ -32,199 +32,199 @@ CONFIG = {
 os.makedirs(CONFIG["save_dir"], exist_ok=True)
 
 # Main page layout
-main_layout = dbc.Container([
+main_layout = dbc.Container([ 
     dcc.Store(id='group-assignments', storage_type='session'),
 
-    dbc.Row([
+    dbc.Row([ 
         # Left Column - Data Management
-        dbc.Col(
-            [
-                # Data Input Card
-                dbc.Card([
-                    dbc.CardHeader("Data Management", className="h5"),
-                    dbc.CardBody([
-                        dbc.InputGroup([
-                            dbc.Input(
-                                id="input-path",
-                                placeholder="Enter/paste directory path",
-                                className="rounded-start"
-                            ),
-                            dbc.Button(
-                                "Analyze",
-                                id="analyze-button",
-                                color="primary",
-                                className="rounded-end"
-                            ),
-                        ], className="mb-3"),
+        dbc.Col([ 
+            # Data Input Card
+            dbc.Card([ 
+                dbc.CardHeader("Data Management", className="h5"), 
+                dbc.CardBody([ 
+                    dbc.InputGroup([ 
+                        dbc.Input( 
+                            id="input-path", 
+                            placeholder="Enter/paste directory path", 
+                            className="rounded-start" 
+                        ), 
+                        dbc.Button( 
+                            "Analyze", 
+                            id="analyze-button", 
+                            color="primary", 
+                            className="rounded-end" 
+                        ), 
+                    ], className="mb-3"), 
 
-                        html.Small(
-                            id="loading-output",
-                            className="text-muted d-block text-center",
-                            children="Ready"  # Initialize with 'Ready'
-                        )
-                    ])
-                ], className="mb-4"),
+                    html.Small( 
+                        id="loading-output", 
+                        className="text-muted d-block text-center", 
+                        children="Ready"  # Initialize with 'Ready'
+                    ) 
+                ]) 
+            ], className="mb-4"),
 
-                # Data Export Card
-                dbc.Card([
-                    dbc.CardHeader("Data Export", className="h5"),
-                    dbc.CardBody([
-                        dbc.Row([
-                            dbc.Col([
-                                dbc.Label("Frequencies:", className="mb-2"),
-                                dcc.Dropdown(
-                                    id="download-frequency-selector",
-                                    multi=True,
-                                    placeholder="Select frequencies...",
-                                    className="dropdown-primary"
-                                )
-                            ], md=6),
+            # Data Export Card
+            dbc.Card([ 
+                dbc.CardHeader("Data Export", className="h5"), 
+                dbc.CardBody([ 
+                    dbc.Row([ 
+                        dbc.Col([ 
+                            dbc.Label("Frequencies:", className="mb-2"), 
+                            dcc.Dropdown( 
+                                id="download-frequency-selector", 
+                                multi=True, 
+                                placeholder="Select frequencies...", 
+                                className="dropdown-primary" 
+                            ) 
+                        ], md=6),
 
-                            dbc.Col([
-                                dbc.Label("Wells:", className="mb-2"),
-                                dcc.Dropdown(
-                                    id="download-well-selector",
-                                    multi=True,
-                                    placeholder="Select wells...",
-                                    className="dropdown-primary"
-                                )
-                            ], md=6)
-                        ], className="g-2 mb-3"),
+                        dbc.Col([ 
+                            dbc.Label("Wells:", className="mb-2"), 
+                            dcc.Dropdown( 
+                                id="download-well-selector", 
+                                multi=True, 
+                                placeholder="Select wells...", 
+                                className="dropdown-primary" 
+                            ) 
+                        ], md=6)
+                    ], className="g-2 mb-3"),
 
-                        dbc.Button(
-                            "Download CSV Bundle",
-                            id="download-button",
-                            color="success",
-                            className="w-100",
-                            outline=True
-                        ),
-                        dcc.Download(id="download-csv"),
+                    dbc.Button( 
+                        "Download CSV Bundle", 
+                        id="download-button", 
+                        color="success", 
+                        className="w-100", 
+                        outline=True 
+                    ),
+                    dcc.Download(id="download-csv"),
 
-                        dbc.Button(
-                            "Statistical Analysis",
-                            id="nav-to-stats",
-                            color="secondary",
-                            className="w-100 mt-3",
-                            outline=True
-                        ),
-                    ])
+                    dbc.Button( 
+                        "Statistical Analysis", 
+                        id="nav-to-stats", 
+                        color="secondary", 
+                        className="w-100 mt-3", 
+                        outline=True 
+                    ),
                 ])
-            ],
-            md=3,
-            className="pe-3"
-        ),
+            ]) 
+        ], md=3, className="pe-3"),
 
         # Right Column - Visualization & Controls
-        dbc.Col(
-            [
-                # Control Panel Card
-                dbc.Card([
-                    dbc.CardHeader("Visualization Controls", className="h5"),
-                    dbc.CardBody([
-                        dbc.Row([
-                            # Normalization Controls
-                            dbc.Col([
-                                dbc.Label("Normalization Method:", className="mb-2"),
-                                dcc.Dropdown(
-                                    id="normalization-method",
-                                    options=[
-                                        {'label': 'Absolute Z', 'value': 'AbsZ'},
-                                        {'label': 'T0 Normalized', 'value': 'AbsZ_t0'},
-                                        {'label': 'Max Normalized', 'value': 'AbsZ_max'},
-                                        {'label': 'Min-Max Scaled', 'value': 'AbsZ_min_max'},
-                                        {'label': 'Control-Normalized', 'value': 'AbsZ_control'},
-                                        {'label': 'Differential', 'value': 'AbsZ_diff'}
-                                    ],
-                                    value='AbsZ',
-                                    clearable=False,
-                                    className="mb-3"
-                                )
-                            ], md=4),
+        dbc.Col([ 
+            # Control Panel Card
+            dbc.Card([ 
+                dbc.CardHeader("Visualization Controls", className="h5"), 
+                dbc.CardBody([ 
+                    dbc.Row([ 
+                        # Normalization Controls
+                        dbc.Col([ 
+                            dbc.Label("Normalization Method:", className="mb-2"), 
+                            dcc.Dropdown( 
+                                id="normalization-method", 
+                                options=[ 
+                                    {'label': 'Absolute Z', 'value': 'AbsZ'}, 
+                                    {'label': 'T0 Normalized', 'value': 'AbsZ_t0'}, 
+                                    {'label': 'Max Normalized', 'value': 'AbsZ_max'}, 
+                                    {'label': 'Min-Max Scaled', 'value': 'AbsZ_min_max'}, 
+                                    {'label': 'Control-Normalized', 'value': 'AbsZ_control'}, 
+                                    {'label': 'Differential', 'value': 'AbsZ_diff'}
+                                ], 
+                                value='AbsZ', 
+                                clearable=False, 
+                                className="mb-3"
+                            ) 
+                        ], md=4),
 
-                            # Frequency Selection
-                            dbc.Col([
-                                dbc.Label("Active Frequencies:", className="mb-2"),
-                                dcc.Dropdown(
-                                    id="frequency-selector",
-                                    multi=True,
-                                    clearable=False,
-                                    className="mb-3"
-                                )
-                            ], md=4),
+                        # Frequency Selection
+                        dbc.Col([ 
+                            dbc.Label("Active Frequencies:", className="mb-2"), 
+                            dcc.Dropdown( 
+                                id="frequency-selector", 
+                                multi=True, 
+                                clearable=False, 
+                                className="mb-3"
+                            ) 
+                        ], md=4),
 
-                            # Display Options
-                            dbc.Col([
-                                dbc.Label("Display Settings:", className="mb-2"),
-                                dbc.Checklist(
-                                    options=[
-                                        {"label": " Group Wells", "value": "group-wells"}
-                                    ],
-                                    value=[],
-                                    id="view-options",
-                                    switch=True,
-                                    className="mb-3"
-                                ),
-                                dbc.Label("Data Density:", className="mb-2"),
-                                dcc.Slider(
-                                    id="data-resolution",
-                                    min=1,
-                                    max=100,
-                                    step=1,
-                                    value=1,
-                                    marks=None,
-                                    tooltip={"placement": "bottom", "always_visible": True}
-                                )
-                            ], md=4)
-                        ], className="g-3")
-                    ])
-                ], className="mb-4"),
+                        # Display Options
+                        dbc.Col([ 
+                            dbc.Label("Display Settings:", className="mb-2"), 
+                            dbc.Checklist( 
+                                options=[ 
+                                    {"label": " Group Wells", "value": "group-wells"} 
+                                ], 
+                                value=[], 
+                                id="view-options", 
+                                switch=True, 
+                                className="mb-3"
+                            ), 
+                            dbc.Label("Data Density:", className="mb-2"), 
+                            dcc.Slider( 
+                                id="data-resolution", 
+                                min=1, 
+                                max=100, 
+                                step=1, 
+                                value=1, 
+                                marks=None, 
+                                tooltip={"placement": "bottom", "always_visible": True} 
+                            ) 
+                        ], md=4),
 
-                # Main Visualization
-                dbc.Card([
-                    dbc.CardBody([
-                        dcc.Graph(
-                            id="impedance-plot",
-                            config={"displayModeBar": True},
-                            style={
-                                "height": "65vh",
-                                "minHeight": "500px"
-                            },
-                            className="border rounded-3"
-                        )
-                    ])
-                ]),
+                        dbc.Col( 
+                            dbc.Label("Std Multiplier:"), 
+                            width="auto" 
+                        ), 
+                        dbc.Col( 
+                            dcc.Slider( 
+                                id="std-scale", 
+                                min=0, 
+                                max=3.0, 
+                                step=0.1, 
+                                value=1.0, 
+                                tooltip={"placement": "bottom"} 
+                            ), 
+                            className="ps-0" 
+                        ) 
+                    ], className="g-3") 
+                ]) 
+            ], className="mb-4"),
 
-                # Standard Deviation Controls
-                dbc.Card([
-                    dbc.CardBody([
-                        dbc.Row([
-                            dbc.Col(
-                                dbc.Label("Std Multiplier:"),
-                                width="auto"
-                            ),
-                            dbc.Col(
-                                dcc.Slider(
-                                    id="std-scale",
-                                    min=0,
-                                    max=3.0,
-                                    step=0.1,
-                                    value=1.0,
-                                    tooltip={"placement": "bottom"}
-                                ),
-                                className="ps-0"
-                            )
-                        ], className="g-3 align-items-center")
-                    ])
-                ], className="mt-3"),
-            ],
-            md=9,
-            className="ps-3"
-        )
+            # Main Visualization
+            dbc.Card([ 
+                dbc.CardBody([ 
+                    dcc.Graph( 
+                        id="impedance-plot", 
+                        config={"displayModeBar": True}, 
+                        style={ 
+                            "height": "65vh", 
+                            "minHeight": "500px" 
+                        }, 
+                        className="border rounded-3" 
+                    ) 
+                ]) 
+            ]),
+
+            # Comment Section Card
+            dbc.Card([ 
+                dbc.CardHeader("Comment", className="h5"), 
+                dbc.CardBody([
+                    dcc.Store(id="comment-store", storage_type="session"),  # Ajout du dcc.Store ici 
+                    dbc.Textarea( 
+                        id="comment-textarea", 
+                        placeholder="Enter your comments here...", 
+                        style={"height": "150px"} 
+                    ),
+                    dbc.Button("Save", id="save-button", color="primary", className="mt-3")  # Ajout du bouton Save 
+                ]) 
+            ], className="mt-4"),  # Adding margin-top for spacing
+        ], md=9, className="ps-3")
     ], className="g-4"),
 
     # Hidden elements for callbacks
     html.Div(id="dummy-output", style={"display": "none"})
 ], fluid=True, className="dbc bg-light")
+
 
 # Define callbacks in a function to be registered in app.py
 def register_main_callbacks(app):
@@ -244,6 +244,7 @@ def register_main_callbacks(app):
         prevent_initial_call=True
     )
     def load_and_process_data(n_clicks, path):
+
         # Prevent callback execution if the button hasn't been clicked
         if not n_clicks or n_clicks == 0:
             raise dash.exceptions.PreventUpdate
@@ -362,6 +363,23 @@ def register_main_callbacks(app):
             filename=f"bioimpedance_data_{time.strftime('%Y%m%d-%H%M%S')}.csv",
             index=False
         )
+    
+    #Save comment
+    @app.callback(
+        Output("comment-store", "value"),
+        [Input("save-button", "n_clicks")],
+        [State("comment-textarea", "value")],
+        prevent_initial_call=True
+    )
+    def save_comment(n_clicks, comment):
+        try:
+            print(f"n_clicks: {n_clicks}, Comment: {comment}")
+            if n_clicks and comment:
+                print(comment)
+                return {"comment": comment}
+            return dash.no_update
+        except Exception as e:
+            print(f"Error: {e}")
 
 # Helper Functions
 def filter_frequencies(df, frequencies):
