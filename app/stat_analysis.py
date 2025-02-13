@@ -17,8 +17,9 @@ from app_instance import app, data_cache  # Import both app and cache from app_i
 import plotly.express as px  # Import Plotly Express for plotting
 
 # Stats page layout
-
 stats_layout = dbc.Container([
+
+    dcc.Store(id='session-store', storage_type='session'),
     dbc.Row([
         dbc.Col(
             dbc.Card([
@@ -101,7 +102,11 @@ stats_layout = dbc.Container([
             ]),
             md=12  # Adjusted to full width for better layout
         )
-    ], className="g-4"),
+    ], 
+    
+    className="g-4"),
+    
+
 ], fluid=True)
 
 # Define callbacks specific to the stats page

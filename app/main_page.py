@@ -7,14 +7,16 @@ from dash import Input, Output, State, dcc, html
 import dash_bootstrap_components as dbc
 import dash.exceptions
 import dash
+
 from dash.dependencies import ALL  # Pour les callbacks dynamiques
 
 from app_instance import app, data_cache  # Import de l'instance app et du cache
 import uuid
+
+from io import StringIO
 import time
 
-# Import local
-from utils import load_wells
+
 
 # Configuration
 CONFIG = {
@@ -30,7 +32,7 @@ os.makedirs(CONFIG["save_dir"], exist_ok=True)
 
 # Mise en page principale
 main_layout = dbc.Container([
-    # Stockages pour la session et la gestion des groupes
+    # Stockages pour la session et pour stocker les groupes définis manuellement
     dcc.Store(id='group-assignments', storage_type='session'),
     dcc.Store(id='session-store', storage_type='session'),
 
@@ -66,7 +68,7 @@ main_layout = dbc.Container([
             dbc.Card([
                 dbc.CardHeader("Group Wells", className="h5"),
                 dbc.CardBody([
-                    # Chaque groupe comporte désormais deux dropdowns (puits et type)
+                    # Chaque groupe comporte deux dropdowns : puits et type
                     html.Div(id="group-wells-container", children=[]),
                     dbc.Button("Add Wells Group", id="add-group-button", color="primary", size="sm", className="mt-2")
                 ])
@@ -91,7 +93,7 @@ main_layout = dbc.Container([
                             dcc.Dropdown(
                                 id="download-well-selector",
                                 multi=True,
-                                placeholder="Sélectionnez les puits...",
+                                placeholder="Sélectionnez les puits ou groupes...",
                                 className="dropdown-primary"
                             )
                         ], md=6)
@@ -105,7 +107,6 @@ main_layout = dbc.Container([
 
         # Colonne de droite : Visualisation et Contrôles
         dbc.Col([
-            # Carte Visualization Controls
             dbc.Card([
                 dbc.CardHeader("Visualization Controls", className="h5"),
                 dbc.CardBody([
@@ -119,9 +120,7 @@ main_layout = dbc.Container([
                                     {'label': 'T0 Normalised', 'value': 'AbsZ_t0'},
                                     {'label': 'Max Normalized', 'value': 'AbsZ_max'},
                                     {'label': 'Min-Max Scaled', 'value': 'AbsZ_min_max'},
-                                    #{'label': 'Control-Normalized', 'value': 'AbsZ_control'},
-                                    #{'label': 'Differential', 'value': 'AbsZ_diff'},
-                                    # Nos nouvelles options
+                                    # Options personnalisées
                                     {'label': 'Treated/Control Normalized', 'value': 'CustomNorm1'},
                                     {'label': 'Infected Differential Normalized', 'value': 'CustomNorm2'}
                                 ],
@@ -161,7 +160,7 @@ main_layout = dbc.Container([
                                 value=1.0,
                                 tooltip={"placement": "bottom", "always_visible": True}
                             )
-                        ], md=8),
+                        ], md=6),
                         dbc.Col([
                             dbc.Label("Data Density :", className="mb-2"),
                             dcc.Slider(
@@ -173,7 +172,7 @@ main_layout = dbc.Container([
                                 marks=None,
                                 tooltip={"placement": "bottom", "always_visible": True}
                             )
-                        ], md=4)
+                        ], md=6)
                     ], className="g-3")
                 ])
             ], className="mb-4"),
@@ -186,12 +185,25 @@ main_layout = dbc.Container([
                         className="border rounded-3"
                     )
                 ])
-            ])
+            ]),
+            # Ajout d'une nouvelle carte pour le champ de commentaire
+            dbc.Card([
+                dbc.CardHeader("Laissez un commentaire sur la visualisation"),
+                dbc.CardBody([
+                    dcc.Textarea(
+                        id="visualization-comment",
+                        placeholder="Entrez votre commentaire ici...",
+                        style={"width": "100%", "height": "100px", "resize": "none"}
+                    ),
+                    dbc.Button("Soumettre", id="submit-comment", color="primary", className="mt-2"),
+                    html.Div(id="comment-output", className="mt-3 text-success")
+                ])
+            ], className="mt-3")
+
         ], md=9, className="ps-3")
     ], className="g-4"),
     html.Div(id="dummy-output", style={"display": "none"})
 ], fluid=True, className="dbc bg-light")
-
 
 # =============================
 # CALLBACKS
@@ -228,7 +240,7 @@ def register_main_callbacks(app):
                 df = load_wells(path, save_path, CONFIG["impedance_params"])
                 df.to_csv(save_path, index=False)
             # Conversion explicite des colonnes d'intérêt en numérique
-            cols_interest = ['AbsZ', 'AbsZ_t0', 'AbsZ_max', 'AbsZ_min_max', 'AbsZ_control', 'AbsZ_diff']
+            cols_interest = ['AbsZ', 'AbsZ_t0', 'AbsZ_max', 'AbsZ_min_max', 'CustomNorm1', 'CustomNorm2']
             for col in cols_interest:
                 if col in df.columns:
                     df[col] = pd.to_numeric(df[col], errors='coerce')
@@ -239,7 +251,6 @@ def register_main_callbacks(app):
             return freq_options, default_freq, "Data loaded successfully", session_id
         except Exception as e:
             return dash.no_update, dash.no_update, f"Error: {str(e)}", dash.no_update
-
 
     # --- Ajout d'un dropdown pour saisir un groupe (avec type) ---
     @app.callback(
@@ -281,7 +292,6 @@ def register_main_callbacks(app):
         children.append(new_group)
         return children
 
-
     # --- Mise à jour dynamique des options des dropdowns de groupe ---
     @app.callback(
         Output({'type': 'group-dropdown', 'index': ALL}, 'options'),
@@ -298,6 +308,7 @@ def register_main_callbacks(app):
         all_wells = sorted(df["Well"].unique())
         outputs = []
         used = set()
+        # Trier les dropdowns par leur index
         ids_sorted = sorted(ids, key=lambda d: d['index'])
         for i, d in enumerate(ids_sorted):
             available = [w for w in all_wells if w not in used]
@@ -305,7 +316,6 @@ def register_main_callbacks(app):
             if selected_values and len(selected_values) > i and selected_values[i]:
                 used.update(selected_values[i])
         return outputs
-
 
     # --- Mise à jour de la visualisation ---
     @app.callback(
@@ -323,7 +333,7 @@ def register_main_callbacks(app):
          State("group-assignments", "data")]
     )
     def update_visualization(session_id, norm_method, frequencies, view_options,
-                             std_scale, data_resolution, selected_groups, selected_types, path, groups):
+                             std_scale, data_resolution, selected_groups, selected_types, path, stored_groups):
         if not session_id or not frequencies:
             return go.Figure(layout={'template': 'plotly_white'}), dash.no_update
         df = data_cache.get(session_id)
@@ -331,39 +341,49 @@ def register_main_callbacks(app):
             return go.Figure(layout={'template': 'plotly_white'}), dash.no_update
         filtered_df = df[df['Frequency'].isin(frequencies)]
         
-        # Si l'option "group-wells" est activée et que l'utilisateur a défini des groupes
+        # Stocker la liste des groupes avec leur type pour Data Export
+        group_assignments = []
+        
         if 'group-wells' in view_options:
-            # Pour les normalisations standards, on crée des séries pour chaque groupe
-            manual_groups = []
-            if selected_groups is not None and selected_types is not None:
-                # Si une des nouvelles options de normalisation personnalisée est demandée
+            if selected_groups and any(selected_groups):
+                manual_groups = []
+                # Si une méthode personnalisée est choisie
                 if norm_method in ["CustomNorm1", "CustomNorm2"]:
-                    # Pour CustomNorm1 : on recherche les groupes 'treated' et 'control'
                     if norm_method == "CustomNorm1":
-                        treated = None
-                        control = None
+                        treated, control = None, None
                         for wells, gtype in zip(selected_groups, selected_types):
-                            if wells and gtype == "treated":
-                                treated = wells
-                            elif wells and gtype == "control":
-                                control = wells
-                        if treated is None or control is None:
-                            # Si l'un des deux n'est pas défini, on ne fait rien de spécial
-                            pass
-                        else:
+                            if wells:
+                                if gtype == "treated":
+                                    treated = wells
+                                elif gtype == "control":
+                                    control = wells
+                        if treated is not None and control is not None:
                             df_treated = filtered_df[filtered_df['Well'].isin(treated)]
                             df_control = filtered_df[filtered_df['Well'].isin(control)]
-                            # Agrégation sur la colonne "AbsZ" par exemple
+                            
+                            # Calcul basé sur les colonnes de df, à t0
                             treated_mean = df_treated.groupby(['hours', 'Frequency'])['AbsZ'].mean().reset_index()
                             control_mean = df_control.groupby(['hours', 'Frequency'])['AbsZ'].mean().reset_index()
                             merged = pd.merge(treated_mean, control_mean, on=['hours','Frequency'], suffixes=('_treated', '_control'))
                             merged['Znorm'] = merged['AbsZ_treated'] / merged['AbsZ_control']
                             merged['Well'] = "Treated/Control"
-                            manual_groups.append(merged)
+                            
+                            print("Valeurs de Znorm (CustomNorm1) :")
+                            print(merged[['hours', 'Frequency', 'Znorm']].head())
+                            
+                            # Mise à jour de la DataFrame d'origine avec la colonne CustomNorm1
+                            original_df = data_cache.get(session_id)
+                            if original_df is not None:
+                                df_updated = pd.merge(original_df, merged[['hours', 'Frequency', 'Znorm']], on=['hours', 'Frequency'], how='left')
+                                df_updated.rename(columns={'Znorm': 'CustomNorm1'}, inplace=True)
+                                data_cache[session_id] = df_updated
+                            
+                            fig = generate_plot(merged, "Znorm", std_scale, data_resolution)
+                            group_assignments.append({"wells": treated, "type": "treated"})
+                            group_assignments.append({"wells": control, "type": "control"})
+                            return fig, group_assignments
                     elif norm_method == "CustomNorm2":
-                        infected = None
-                        treated = None
-                        control = None
+                        infected, treated, control = None, None, None
                         for wells, gtype in zip(selected_groups, selected_types):
                             if wells:
                                 if gtype == "infected":
@@ -372,9 +392,7 @@ def register_main_callbacks(app):
                                     treated = wells
                                 elif gtype == "control":
                                     control = wells
-                        if infected is None or treated is None or control is None:
-                            pass
-                        else:
+                        if infected is not None and treated is not None and control is not None:
                             df_infected = filtered_df[filtered_df['Well'].isin(infected)]
                             df_treated = filtered_df[filtered_df['Well'].isin(treated)]
                             df_control = filtered_df[filtered_df['Well'].isin(control)]
@@ -386,51 +404,68 @@ def register_main_callbacks(app):
                             merged.rename(columns={'AbsZ': 'AbsZ_treated'}, inplace=True)
                             merged['Znorm'] = (merged['AbsZ_infected'] - merged['AbsZ_control']) / (merged['AbsZ_infected'] - merged['AbsZ_treated'])
                             merged['Well'] = "Infected Differential"
-                            manual_groups.append(merged)
-                    # On utilisera la colonne 'Znorm' dans le tracé
-                    if len(manual_groups) > 0:
-                        aggregated_df = pd.concat(manual_groups, ignore_index=True)
-                        fig = generate_plot(aggregated_df, "Znorm", std_scale, data_resolution)
-                        return fig, groups
+                            
+                            print("Valeurs de Znorm (CustomNorm2) :")
+                            print(merged[['hours', 'Frequency', 'Znorm']].head())
+                            
+                            # Mise à jour de la DataFrame d'origine avec la colonne CustomNorm2
+                            original_df = data_cache.get(session_id)
+                            if original_df is not None:
+                                df_updated = pd.merge(original_df, merged[['hours', 'Frequency', 'Znorm']], on=['hours', 'Frequency'], how='left')
+                                df_updated.rename(columns={'Znorm': 'CustomNorm2'}, inplace=True)
+                                data_cache[session_id] = df_updated
+                            
+                            fig = generate_plot(merged, "Znorm", std_scale, data_resolution)
+                            group_assignments.append({"wells": infected, "type": "infected"})
+                            group_assignments.append({"wells": treated, "type": "treated"})
+                            group_assignments.append({"wells": control, "type": "control"})
+                            return fig, group_assignments
                 else:
-                    # Normalisation standard basée sur le choix du norm_method parmi les options existantes
+                    # Normalisation standard pour chaque groupe
+                    manual_groups = []
                     for wells, gtype in zip(selected_groups, selected_types):
-                        if wells and len(wells) > 0:
+                        if wells:
+                            group_assignments.append({"wells": wells, "type": gtype})
                             group_df = filtered_df[filtered_df['Well'].isin(wells)]
                             if not group_df.empty:
                                 agg_df = group_df.groupby(['hours', 'Frequency'])[norm_method].mean().reset_index()
                                 agg_df['Well'] = f"Group ({gtype}): " + ", ".join(wells)
                                 manual_groups.append(agg_df)
-                    if len(manual_groups) > 0:
+                    if manual_groups:
                         aggregated_df = pd.concat(manual_groups, ignore_index=True)
                         fig = generate_plot(aggregated_df, norm_method, std_scale, data_resolution)
-                        return fig, groups
-            # Si aucun groupe n'est sélectionné, on fait le regroupement automatique
-            groups = create_well_groups(filtered_df)
-            grouped_df = apply_group_averaging(filtered_df, groups, norm_method)
+                        return fig, group_assignments
+            # Aucun groupe défini manuellement, donc regroupement automatique
+            groups_auto = create_well_groups(filtered_df)
+            grouped_df = apply_group_averaging(filtered_df, groups_auto, norm_method)
             fig = generate_plot(grouped_df, norm_method, std_scale, data_resolution)
-            return fig, groups
+            return fig, group_assignments
         else:
             fig = generate_plot(filtered_df, norm_method, std_scale, data_resolution)
             return fig, dash.no_update
-
 
     # --- Mise à jour des options des menus déroulants de téléchargement ---
     @app.callback(
         [Output("download-frequency-selector", "options"),
          Output("download-well-selector", "options")],
-        Input("session-store", "data")
+        [Input("session-store", "data"),
+         Input("group-assignments", "data")]
     )
-    def update_download_options(session_id):
+    def update_download_options(session_id, group_assignments):
         if not session_id:
             return [], []
         df = data_cache.get(session_id)
         if df is None:
             return [], []
         freq_options = [{'label': f"{frq:.2f} Hz", 'value': frq} for frq in sorted(df['Frequency'].unique())]
-        well_options = [{'label': w, 'value': w} for w in sorted(df['Well'].unique())]
+        individual_wells = sorted(df['Well'].unique())
+        well_options = [{'label': w, 'value': w} for w in individual_wells]
+        if group_assignments:
+            for i, group in enumerate(group_assignments):
+                if group.get("wells"):
+                    label = f"Group ({group['type']}): " + ", ".join(group["wells"])
+                    well_options.append({'label': label, 'value': f"group_{i}"})
         return freq_options, well_options
-
 
     # --- Génération du téléchargement du CSV filtré ---
     @app.callback(
@@ -438,19 +473,29 @@ def register_main_callbacks(app):
         Input("download-button", "n_clicks"),
         [State("session-store", "data"),
          State("download-frequency-selector", "value"),
-         State("download-well-selector", "value")],
+         State("download-well-selector", "value"),
+         State("group-assignments", "data")],
         prevent_initial_call=True
-    )
-    def generate_csv(n_clicks, session_id, frequencies, wells):
+        )
+    def generate_csv(n_clicks, session_id, frequencies, wells, group_assignments):
         if not session_id or not frequencies or not wells:
             raise dash.exceptions.PreventUpdate
         df = data_cache.get(session_id)
         if df is None:
             raise dash.exceptions.PreventUpdate
-        filtered_df = df[
-            df['Frequency'].isin(frequencies) &
-            df['Well'].isin(wells)
-        ]
+        final_wells = []
+        for w in wells:
+            if isinstance(w, str) and w.startswith("group_"):
+                try:
+                    idx = int(w.split("_")[1])
+                    if group_assignments and idx < len(group_assignments):
+                        final_wells.extend(group_assignments[idx]["wells"])
+                except Exception:
+                    continue
+            else: 
+                final_wells.append(w)
+        final_wells = list(set(final_wells))
+        filtered_df = df[df['Frequency'].isin(frequencies) & df['Well'].isin(final_wells)]
         if filtered_df.empty:
             raise dash.exceptions.PreventUpdate
         return dcc.send_data_frame(
@@ -458,7 +503,6 @@ def register_main_callbacks(app):
             filename=f"bioimpedance_data_{time.strftime('%Y%m%d-%H%M%S')}.csv",
             index=False
         )
-
 
     # --- Affichage/Masquage de la carte "Group Wells" ---
     @app.callback(
@@ -470,6 +514,18 @@ def register_main_callbacks(app):
             return {"display": "block"}
         else:
             return {"display": "none"}
+        
+    @app.callback(
+        Output("comment-output", "children"),
+        Input("submit-comment", "n_clicks"),
+        State("visualization-comment", "value"),
+        prevent_initial_call=True
+    )
+    def save_comment(n_clicks, comment):
+        if not comment:
+            return "Aucun commentaire soumis."
+        return f"Commentaire soumis : {comment}"
+
 
 
 # =============================
@@ -477,16 +533,14 @@ def register_main_callbacks(app):
 # =============================
 
 def filter_frequencies(df, frequencies):
-    """Filtre le dataframe pour ne conserver que les fréquences sélectionnées."""
+    """Filtre le DataFrame pour ne conserver que les fréquences sélectionnées."""
     return df[df['Frequency'].isin(frequencies)]
-
 
 def create_well_groups(df):
     """Crée des groupes automatiques de puits en fonction de la taille définie dans CONFIG."""
     wells = sorted(df["Well"].unique())
     grouped_wells = [wells[i:i + CONFIG["group_size"]] for i in range(0, len(wells), CONFIG["group_size"])]
     return grouped_wells
-
 
 def apply_group_averaging(df, groups, norm_method):
     """Calcule la moyenne de la colonne d'intérêt pour chaque groupe de puits."""
@@ -498,22 +552,25 @@ def apply_group_averaging(df, groups, norm_method):
         averaged_data.append(group_mean)
     return pd.concat(averaged_data, ignore_index=True)
 
-
 def generate_plot(df, norm_method, std_scale=1.0, data_resolution=1):
     """Génère la figure Plotly en fonction des données, de la méthode de normalisation et des paramètres d'affichage."""
     fig = go.Figure()
     colors = plotly.colors.qualitative.Dark24
+
     for idx, well in enumerate(df['Well'].unique()):
         well_data = df[df['Well'] == well].sort_values('hours')
+
         if data_resolution > 1:
             well_data = well_data.iloc[::data_resolution]
+
         color = colors[idx % len(colors)]
+
         fig.add_trace(go.Scatter(
             x=well_data['hours'],
             y=well_data[norm_method],
             name=well,
             mode='lines',
-            line=dict(width=2, color=color)
+            line=dict(width=2, color=color),
         ))
         std = well_data[norm_method].std() * std_scale
         upper_bound = well_data[norm_method] + std
@@ -521,6 +578,7 @@ def generate_plot(df, norm_method, std_scale=1.0, data_resolution=1):
         hex_color = color.lstrip('#')
         rgb = tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
         fillcolor = f'rgba({rgb[0]}, {rgb[1]}, {rgb[2]}, 0.2)'
+
         fig.add_trace(go.Scatter(
             x=well_data['hours'],
             y=upper_bound,
@@ -547,4 +605,6 @@ def generate_plot(df, norm_method, std_scale=1.0, data_resolution=1):
         autosize=True,
         margin=dict(l=50, r=50, t=50, b=50)
     )
+    return fig
+
     return fig

@@ -7,8 +7,8 @@ from threading import Timer  # Use Timer to delay the browser opening
 
 # Define the app layout
 app.layout = html.Div([
-    dcc.Store(id='session-store', storage_type='session'),
     dcc.Location(id='url', refresh=False),
+    dcc.Store(id='session-store', storage_type='session'),
     html.Div(id='page-content')
 ])
 
