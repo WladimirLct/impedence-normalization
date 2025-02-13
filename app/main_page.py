@@ -7,15 +7,15 @@ from dash import Input, Output, State, dcc, html
 import dash_bootstrap_components as dbc
 import dash.exceptions
 import dash
-
 from dash.dependencies import ALL  # Pour les callbacks dynamiques
 
 from app_instance import app, data_cache  # Import de l'instance app et du cache
 import uuid
 
-from io import StringIO
 import time
 
+# Import local
+from utils import load_wells
 
 
 # Configuration
@@ -578,7 +578,6 @@ def generate_plot(df, norm_method, std_scale=1.0, data_resolution=1):
         hex_color = color.lstrip('#')
         rgb = tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
         fillcolor = f'rgba({rgb[0]}, {rgb[1]}, {rgb[2]}, 0.2)'
-
         fig.add_trace(go.Scatter(
             x=well_data['hours'],
             y=upper_bound,
