@@ -1,5 +1,4 @@
 # stat_analysis.py
-
 import dash
 from dash import Input, Output, State, dcc, html, callback  # Added 'dcc' and 'callback' imports
 import dash_bootstrap_components as dbc

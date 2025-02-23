@@ -1,23 +1,11 @@
-# app_instance.py
-
 import dash
 from dash import Dash
 import dash_bootstrap_components as dbc
-import diskcache
-from dash.long_callback import DiskcacheLongCallbackManager  # Correct import
 import pandas as pd
 
 # Clear cache folder for fresh start
 import shutil
 shutil.rmtree("./cache", ignore_errors=True)
-
-# # Initialize Diskcache
-# cache = diskcache.Cache("./cache")  # Ensure this directory exists
-# long_callback_manager = DiskcacheLongCallbackManager(cache)
-# # Initialize Diskcache
-# cache = diskcache.Cache("./cache")
-# background_callback_manager = dash.long_callback.DiskcacheLongCallbackManager(cache)
-# app.long_callback_manager = background_callback_manager
 
 # Initialize Dash application with the long_callback_manager
 app = Dash(
