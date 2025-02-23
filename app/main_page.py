@@ -552,7 +552,10 @@ def apply_group_averaging(df, groups, norm_method):
         averaged_data.append(group_mean)
     return pd.concat(averaged_data, ignore_index=True)
 
-def generate_plot(df, norm_method, std_scale=1.0, data_resolution=1):
+import plotly.graph_objects as go
+from scipy.signal import savgol_filter
+
+def generate_plot(df, norm_method, std_scale=1.0, data_resolution=1, window_length=51, polyorder=3):
     """Génère la figure Plotly en fonction des données, de la méthode de normalisation et des paramètres d'affichage."""
     fig = go.Figure()
     colors = plotly.colors.qualitative.Dark24
@@ -560,6 +563,10 @@ def generate_plot(df, norm_method, std_scale=1.0, data_resolution=1):
     for idx, well in enumerate(df['Well'].unique()):
         well_data = df[df['Well'] == well].sort_values('hours')
 
+        # Appliquer un lissage de Savitzky-Golay
+        well_data[norm_method] = savgol_filter(well_data[norm_method], window_length, polyorder)
+
+        # Échantillonnage des données si nécessaire
         if data_resolution > 1:
             well_data = well_data.iloc[::data_resolution]
 
@@ -572,12 +579,14 @@ def generate_plot(df, norm_method, std_scale=1.0, data_resolution=1):
             mode='lines',
             line=dict(width=2, color=color),
         ))
+
         std = well_data[norm_method].std() * std_scale
         upper_bound = well_data[norm_method] + std
         lower_bound = well_data[norm_method] - std
         hex_color = color.lstrip('#')
         rgb = tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
         fillcolor = f'rgba({rgb[0]}, {rgb[1]}, {rgb[2]}, 0.2)'
+
         fig.add_trace(go.Scatter(
             x=well_data['hours'],
             y=upper_bound,
@@ -594,6 +603,7 @@ def generate_plot(df, norm_method, std_scale=1.0, data_resolution=1):
             fillcolor=fillcolor,
             showlegend=False
         ))
+
     fig.update_layout(
         template='plotly_white',
         title=f'Impedance Over Time ({norm_method})',
@@ -604,6 +614,5 @@ def generate_plot(df, norm_method, std_scale=1.0, data_resolution=1):
         autosize=True,
         margin=dict(l=50, r=50, t=50, b=50)
     )
-    return fig
 
     return fig
