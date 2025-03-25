@@ -341,13 +341,15 @@ def register_main_callbacks(app):
             return go.Figure(layout={'template': 'plotly_white'}), dash.no_update
         filtered_df = df[df['Frequency'].isin(frequencies)]
         
-        # Stocker la liste des groupes avec leur type pour Data Export
+        # Activer la 3D si plusieurs fréquences sont sélectionnées
+        is_3d = len(frequencies) > 1
+
+        # Stocker la liste des groupes pour l'exportation
         group_assignments = []
-        
+
         if 'group-wells' in view_options:
             if selected_groups and any(selected_groups):
                 manual_groups = []
-                # Si une méthode personnalisée est choisie
                 if norm_method in ["CustomNorm1", "CustomNorm2"]:
                     if norm_method == "CustomNorm1":
                         treated, control = None, None
@@ -361,7 +363,6 @@ def register_main_callbacks(app):
                             df_treated = filtered_df[filtered_df['Well'].isin(treated)]
                             df_control = filtered_df[filtered_df['Well'].isin(control)]
                             
-                            # Calcul basé sur les colonnes de df, à t0
                             treated_mean = df_treated.groupby(['hours', 'Frequency'])['AbsZ'].mean().reset_index()
                             control_mean = df_control.groupby(['hours', 'Frequency'])['AbsZ'].mean().reset_index()
                             merged = pd.merge(treated_mean, control_mean, on=['hours','Frequency'], suffixes=('_treated', '_control'))
@@ -371,14 +372,13 @@ def register_main_callbacks(app):
                             print("Valeurs de Znorm (CustomNorm1) :")
                             print(merged[['hours', 'Frequency', 'Znorm']].head())
                             
-                            # Mise à jour de la DataFrame d'origine avec la colonne CustomNorm1
                             original_df = data_cache.get(session_id)
                             if original_df is not None:
                                 df_updated = pd.merge(original_df, merged[['hours', 'Frequency', 'Znorm']], on=['hours', 'Frequency'], how='left')
                                 df_updated.rename(columns={'Znorm': 'CustomNorm1'}, inplace=True)
                                 data_cache[session_id] = df_updated
                             
-                            fig = generate_plot(merged, "Znorm", std_scale, data_resolution)
+                            fig = generate_plot(merged, "Znorm", std_scale, data_resolution, is_3d=is_3d)
                             group_assignments.append({"wells": treated, "type": "treated"})
                             group_assignments.append({"wells": control, "type": "control"})
                             return fig, group_assignments
@@ -408,20 +408,18 @@ def register_main_callbacks(app):
                             print("Valeurs de Znorm (CustomNorm2) :")
                             print(merged[['hours', 'Frequency', 'Znorm']].head())
                             
-                            # Mise à jour de la DataFrame d'origine avec la colonne CustomNorm2
                             original_df = data_cache.get(session_id)
                             if original_df is not None:
                                 df_updated = pd.merge(original_df, merged[['hours', 'Frequency', 'Znorm']], on=['hours', 'Frequency'], how='left')
                                 df_updated.rename(columns={'Znorm': 'CustomNorm2'}, inplace=True)
                                 data_cache[session_id] = df_updated
                             
-                            fig = generate_plot(merged, "Znorm", std_scale, data_resolution)
+                            fig = generate_plot(merged, "Znorm", std_scale, data_resolution, is_3d=is_3d)
                             group_assignments.append({"wells": infected, "type": "infected"})
                             group_assignments.append({"wells": treated, "type": "treated"})
                             group_assignments.append({"wells": control, "type": "control"})
                             return fig, group_assignments
                 else:
-                    # Normalisation standard pour chaque groupe
                     manual_groups = []
                     for wells, gtype in zip(selected_groups, selected_types):
                         if wells:
@@ -433,16 +431,16 @@ def register_main_callbacks(app):
                                 manual_groups.append(agg_df)
                     if manual_groups:
                         aggregated_df = pd.concat(manual_groups, ignore_index=True)
-                        fig = generate_plot(aggregated_df, norm_method, std_scale, data_resolution)
+                        fig = generate_plot(aggregated_df, norm_method, std_scale, data_resolution, is_3d=is_3d)
                         return fig, group_assignments
-            # Aucun groupe défini manuellement, donc regroupement automatique
             groups_auto = create_well_groups(filtered_df)
             grouped_df = apply_group_averaging(filtered_df, groups_auto, norm_method)
-            fig = generate_plot(grouped_df, norm_method, std_scale, data_resolution)
+            fig = generate_plot(grouped_df, norm_method, std_scale, data_resolution, is_3d=is_3d)
             return fig, group_assignments
         else:
-            fig = generate_plot(filtered_df, norm_method, std_scale, data_resolution)
+            fig = generate_plot(filtered_df, norm_method, std_scale, data_resolution, is_3d=is_3d)
             return fig, dash.no_update
+
 
     # --- Mise à jour des options des menus déroulants de téléchargement ---
     @app.callback(
@@ -553,66 +551,104 @@ def apply_group_averaging(df, groups, norm_method):
     return pd.concat(averaged_data, ignore_index=True)
 
 import plotly.graph_objects as go
+import plotly
+import pandas as pd
+import numpy as np
 from scipy.signal import savgol_filter
 
-def generate_plot(df, norm_method, std_scale=1.0, data_resolution=1, window_length=51, polyorder=3):
-    """Génère la figure Plotly en fonction des données, de la méthode de normalisation et des paramètres d'affichage."""
+def generate_plot(df, norm_method, std_scale=1.0, data_resolution=1, 
+                  window_length=51, polyorder=3, is_3d=False, show_std=False):
+    """Génère une figure Plotly en 2D ou 3D selon les paramètres fournis."""
     fig = go.Figure()
     colors = plotly.colors.qualitative.Dark24
-
-    for idx, well in enumerate(df['Well'].unique()):
-        well_data = df[df['Well'] == well].sort_values('hours')
-
-        # Appliquer un lissage de Savitzky-Golay
-        well_data[norm_method] = savgol_filter(well_data[norm_method], window_length, polyorder)
-
-        # Échantillonnage des données si nécessaire
-        if data_resolution > 1:
-            well_data = well_data.iloc[::data_resolution]
-
-        color = colors[idx % len(colors)]
-
-        fig.add_trace(go.Scatter(
-            x=well_data['hours'],
-            y=well_data[norm_method],
-            name=well,
-            mode='lines',
-            line=dict(width=2, color=color),
-        ))
-
-        std = well_data[norm_method].std() * std_scale
-        upper_bound = well_data[norm_method] + std
-        lower_bound = well_data[norm_method] - std
-        hex_color = color.lstrip('#')
-        rgb = tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
-        fillcolor = f'rgba({rgb[0]}, {rgb[1]}, {rgb[2]}, 0.2)'
-
-        fig.add_trace(go.Scatter(
-            x=well_data['hours'],
-            y=upper_bound,
-            mode='lines',
-            line=dict(width=0),
-            showlegend=False
-        ))
-        fig.add_trace(go.Scatter(
-            x=well_data['hours'],
-            y=lower_bound,
-            mode='lines',
-            line=dict(width=0),
-            fill='tonexty',
-            fillcolor=fillcolor,
-            showlegend=False
-        ))
-
-    fig.update_layout(
-        template='plotly_white',
-        title=f'Impedance Over Time ({norm_method})',
-        xaxis_title='Time (hours)',
-        yaxis_title=f'Impedance ({norm_method})',
-        hovermode='closest',
-        legend_title='Wells',
-        autosize=True,
-        margin=dict(l=50, r=50, t=50, b=50)
-    )
-
+    
+    wells = df["Well"].unique()
+    color_map = {well: colors[idx % len(colors)] for idx, well in enumerate(wells)}
+    
+    if is_3d:
+        unique_frequencies = sorted(df["Frequency"].unique())
+        
+        for well in wells:
+            well_data = df[df['Well'] == well]
+            color = color_map[well]
+            
+            for frq in unique_frequencies:
+                dff = well_data[well_data['Frequency'] == frq].sort_values(['hours'])
+                if dff.empty:
+                    continue
+                
+                dff[norm_method] = savgol_filter(dff[norm_method], window_length, polyorder)
+                
+                if data_resolution > 1:
+                    dff = dff.iloc[::data_resolution]
+                
+                if show_std:
+                    error_color = plotly.colors.hex_to_rgb(color) + (0.5,)
+                    error_color = "rgba(" + ",".join(map(str, error_color)) + ")"
+                    
+                    error_z = dict(type='data',
+                                   array=dff.get(f"{norm_method}_std", np.zeros(len(dff))).values,
+                                   color=error_color,
+                                   thickness=0.9,
+                                   width=3)
+                else:
+                    error_z = None
+                
+                fig.add_trace(go.Scatter3d(
+                    x=dff["hours"],
+                    y=np.full(len(dff["hours"]), frq),
+                    z=dff[norm_method],
+                    name=f"{well} ({frq:.2f} Hz)",
+                    legendgroup=well,
+                    marker=dict(size=1),
+                    line=dict(color=color),
+                    error_z=error_z,
+                    customdata=dff[[norm_method, "hours"]].values,
+                    hovertemplate=
+                    "<b>Impedance</b>: %{customdata[0]:.2f}<br>" +
+                    "<b>Time</b>: %{customdata[1]:.2f} h",
+                ))
+        
+        fig.update_layout(
+            template='plotly_white',
+            title=f'3D Impedance Over Time ({norm_method})',
+            scene=dict(
+                xaxis_title='Time (hours)',
+                yaxis_title='Frequency (Hz)',
+                zaxis_title=f'Impedance ({norm_method})',
+            ),
+            hovermode='closest',
+            legend=dict(groupclick="toggleitem"),
+            autosize=True,
+            margin=dict(l=50, r=50, t=50, b=50)
+        )
+    else:
+        for well in wells:
+            well_data = df[df['Well'] == well].sort_values(['hours'])
+            well_data[norm_method] = savgol_filter(well_data[norm_method], window_length, polyorder)
+            
+            if data_resolution > 1:
+                well_data = well_data.iloc[::data_resolution]
+            
+            color = color_map[well]
+            
+            fig.add_trace(go.Scatter(
+                x=well_data['hours'],
+                y=well_data[norm_method],
+                name=well,
+                mode='lines',
+                line=dict(width=2, color=color),
+            ))
+        
+        fig.update_layout(
+            template='plotly_white',
+            title=f'Impedance Over Time ({norm_method})',
+            xaxis_title='Time (hours)',
+            yaxis_title=f'Impedance ({norm_method})',
+            hovermode='closest',
+            legend_title='Wells',
+            autosize=True,
+            margin=dict(l=50, r=50, t=50, b=50)
+        )
+    
     return fig
