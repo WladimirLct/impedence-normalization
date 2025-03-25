@@ -566,9 +566,63 @@ def generate_plot(df, norm_method, std_scale=1.0, data_resolution=1,
     color_map = {well: colors[idx % len(colors)] for idx, well in enumerate(wells)}
     
     if is_3d:
-        unique_frequencies = sorted(df["Frequency"].unique())
         
-        for well in wells:
+        fig = plot3d(wells, df, color_map, fig, norm_method, data_resolution, window_length, polyorder, show_std)
+        
+        fig.update_layout(
+            template='plotly_white',
+            title=f'3D Impedance Over Time ({norm_method})',
+            scene=dict(
+                xaxis_title='Time (hours)',
+                yaxis_title='Frequency (Hz)',
+                zaxis_title=f'Impedance ({norm_method})',
+            ),
+            hovermode='closest',
+            legend=dict(groupclick="toggleitem"),
+            autosize=True,
+            margin=dict(l=50, r=50, t=50, b=50)
+        )
+    else:
+        fig = plot2d(wells, df, color_map, fig, norm_method, data_resolution, window_length, polyorder)
+        
+        fig.update_layout(
+            template='plotly_white',
+            title=f'Impedance Over Time ({norm_method})',
+            xaxis_title='Time (hours)',
+            yaxis_title=f'Impedance ({norm_method})',
+            hovermode='closest',
+            legend_title='Wells',
+            autosize=True,
+            margin=dict(l=50, r=50, t=50, b=50)
+        )
+    
+    return fig
+
+
+def plot2d(wells, df, color_map, fig, norm_method, data_resolution, window_length, polyorder):
+    for well in wells:
+            well_data = df[df['Well'] == well].sort_values(['hours'])
+            well_data[norm_method] = savgol_filter(well_data[norm_method], window_length, polyorder)
+            
+            if data_resolution > 1:
+                well_data = well_data.iloc[::data_resolution]
+            
+            color = color_map[well]
+            
+            fig.add_trace(go.Scatter(
+                x=well_data['hours'],
+                y=well_data[norm_method],
+                name=well,
+                mode='lines',
+                line=dict(width=2, color=color),
+            ))
+    return fig
+
+def plot3d(wells, df, color_map, fig, norm_method, data_resolution, window_length, polyorder, show_std):
+
+    unique_frequencies = sorted(df["Frequency"].unique())
+
+    for well in wells:
             well_data = df[df['Well'] == well]
             color = color_map[well]
             
@@ -608,47 +662,5 @@ def generate_plot(df, norm_method, std_scale=1.0, data_resolution=1,
                     "<b>Impedance</b>: %{customdata[0]:.2f}<br>" +
                     "<b>Time</b>: %{customdata[1]:.2f} h",
                 ))
-        
-        fig.update_layout(
-            template='plotly_white',
-            title=f'3D Impedance Over Time ({norm_method})',
-            scene=dict(
-                xaxis_title='Time (hours)',
-                yaxis_title='Frequency (Hz)',
-                zaxis_title=f'Impedance ({norm_method})',
-            ),
-            hovermode='closest',
-            legend=dict(groupclick="toggleitem"),
-            autosize=True,
-            margin=dict(l=50, r=50, t=50, b=50)
-        )
-    else:
-        for well in wells:
-            well_data = df[df['Well'] == well].sort_values(['hours'])
-            well_data[norm_method] = savgol_filter(well_data[norm_method], window_length, polyorder)
-            
-            if data_resolution > 1:
-                well_data = well_data.iloc[::data_resolution]
-            
-            color = color_map[well]
-            
-            fig.add_trace(go.Scatter(
-                x=well_data['hours'],
-                y=well_data[norm_method],
-                name=well,
-                mode='lines',
-                line=dict(width=2, color=color),
-            ))
-        
-        fig.update_layout(
-            template='plotly_white',
-            title=f'Impedance Over Time ({norm_method})',
-            xaxis_title='Time (hours)',
-            yaxis_title=f'Impedance ({norm_method})',
-            hovermode='closest',
-            legend_title='Wells',
-            autosize=True,
-            margin=dict(l=50, r=50, t=50, b=50)
-        )
-    
+
     return fig
