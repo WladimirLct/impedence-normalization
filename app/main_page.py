@@ -1,19 +1,21 @@
 import os
-import pandas as pd
-import plotly
-import plotly.graph_objects as go
-import dash_daq as daq 
-
-from dash import Input, Output, State, dcc, html
-import dash_bootstrap_components as dbc
-import dash.exceptions
-import dash
-from dash.dependencies import ALL  # Pour les callbacks dynamiques
-
-from app_instance import app, data_cache  # Import de l'instance app et du cache
 import uuid
-
 import time
+import plotly
+import dash
+import pandas as pd
+import dash_daq as daq 
+import dash.exceptions
+import plotly.colors
+import numpy as np
+import plotly.graph_objects as go
+import dash_bootstrap_components as dbc
+from dash import Input, Output, State, dcc, html
+from dash.dependencies import ALL  # Pour les callbacks dynamiques
+from app_instance import app, data_cache  # Import de l'instance app et du cache
+from scipy.signal import savgol_filter
+from scipy.interpolate import interp1d
+
 
 # Import local
 from utils import load_wells
@@ -160,15 +162,6 @@ main_layout = dbc.Container([
                                 labelPosition="bottom",  # Position des labels
                             )
                         ], md=6),
-                        #     dcc.Slider(
-                        #         id="std-scale",
-                        #         min=0,
-                        #         max=1.0,
-                        #         step=1,
-                        #         value=1.0,
-                        #         tooltip={"placement": "bottom", "always_visible": True}
-                        #     )
-                        # ], md=6),
                         dbc.Col([
                             dbc.Label("Data Density :", className="mb-2"),
                             dcc.Slider(
@@ -435,7 +428,7 @@ def register_main_callbacks(app):
                                     treated = wells
                                 elif gtype == "control":
                                     control = wells
-                            
+            
                         if infected is not None and treated is not None and control is not None:
                             df_infected = filtered_df[filtered_df['Well'].isin(infected)]
                             df_treated = filtered_df[filtered_df['Well'].isin(treated)]
@@ -595,21 +588,6 @@ def apply_group_averaging(df, groups, norm_method):
         group_mean['Well'] = f"Group {', '.join(group)}"
         averaged_data.append(group_mean)
     return pd.concat(averaged_data, ignore_index=True)
-
-import plotly.graph_objects as go
-from scipy.signal import savgol_filter
-import numpy as np
-
-
-import plotly.colors
-
-
-import pandas as pd
-import numpy as np
-import plotly.graph_objects as go
-import plotly.colors
-from scipy.interpolate import interp1d
-from scipy.signal import savgol_filter
 
 def generate_plot(df, norm_method, std_scale=1.0, data_resolution=1, window_length=51, polyorder=5):
 
