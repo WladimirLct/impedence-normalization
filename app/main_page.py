@@ -2,6 +2,7 @@ import os
 import pandas as pd
 import plotly
 import plotly.graph_objects as go
+import dash_daq as daq 
 
 from dash import Input, Output, State, dcc, html
 import dash_bootstrap_components as dbc
@@ -152,15 +153,22 @@ main_layout = dbc.Container([
                     dbc.Row([
                         dbc.Col([
                             dbc.Label("Std Multiplier :", className="mb-2"),
-                            dcc.Slider(
+                            daq.ToggleSwitch(
                                 id="std-scale",
-                                min=0,
-                                max=3.0,
-                                step=0.2,
-                                value=1.0,
-                                tooltip={"placement": "bottom", "always_visible": True}
+                                value=False,  # Désactivé par défaut
+                                label=["Off", "On"],  # Labels sous le switch
+                                labelPosition="bottom",  # Position des labels
                             )
                         ], md=6),
+                        #     dcc.Slider(
+                        #         id="std-scale",
+                        #         min=0,
+                        #         max=1.0,
+                        #         step=1,
+                        #         value=1.0,
+                        #         tooltip={"placement": "bottom", "always_visible": True}
+                        #     )
+                        # ], md=6),
                         dbc.Col([
                             dbc.Label("Data Density :", className="mb-2"),
                             dcc.Slider(
@@ -263,7 +271,9 @@ def register_main_callbacks(app):
             raise dash.exceptions.PreventUpdate
         if children is None:
             children = []
+        
         new_index = len(children)
+        
         new_group = html.Div([
             dbc.Row([
                 dbc.Col([
@@ -273,7 +283,8 @@ def register_main_callbacks(app):
                         multi=True,
                         placeholder="Sélectionnez les puits..."
                     )
-                ], width=8),
+                ], width=8),  # Réduction pour ajouter les champs supplémentaires
+
                 dbc.Col([
                     dbc.Label("Type", className="mb-1"),
                     dcc.Dropdown(
@@ -286,9 +297,36 @@ def register_main_callbacks(app):
                         value="control",  # Valeur par défaut
                         clearable=False
                     )
-                ], width=4)
+                ], width=4),  # Ajustement de la largeur
+            ], className="mb-2"),
+
+            dbc.Row([
+                dbc.Col([
+                    dbc.Label("Concentration"),
+                    dbc.Input(
+                        id={'type': 'group-concentration', 'index': new_index},
+                        type="number",  # Champ numérique
+                        placeholder="Entrez la concentration..."
+                    )
+                ], width=8),
+
+                dbc.Col([
+                    dbc.Label("Unité"),
+                    dcc.Dropdown(
+                        id={'type': 'group-unit', 'index': new_index},
+                        options=[
+                            {"label": "mg/mL", "value": "mg/mL"},
+                            {"label": "µg/mL", "value": "µg/mL"},
+                            {"label": "mM", "value": "mM"},
+                            {"label": "µM", "value": "µM"}
+                        ],
+                        value="µM",  # Unité par défaut
+                        clearable=False
+                    )
+                ], width=3)
             ], className="mb-2")
         ])
+        
         children.append(new_group)
         return children
 
@@ -329,11 +367,16 @@ def register_main_callbacks(app):
          Input("data-resolution", "value"),
          Input({'type': 'group-dropdown', 'index': ALL}, 'value'),
          Input({'type': 'group-type', 'index': ALL}, 'value')],
+         Input({'type': 'group-concentration', 'index': ALL}, 'value'),
+         Input({'type': 'group-unit', 'index': ALL}, 'value'),
         [State("input-path", "value"),
          State("group-assignments", "data")]
     )
     def update_visualization(session_id, norm_method, frequencies, view_options,
-                             std_scale, data_resolution, selected_groups, selected_types, path, stored_groups):
+                             std_scale, data_resolution, selected_groups, selected_types,selected_concentrations,selected_unit, path, stored_groups):
+        # Convertir le booléen en 3.0 ou 0.0
+        std_scale = 3.0 if std_scale else 0.0
+        
         if not session_id or not frequencies:
             return go.Figure(layout={'template': 'plotly_white'}), dash.no_update
         df = data_cache.get(session_id)
@@ -392,6 +435,7 @@ def register_main_callbacks(app):
                                     treated = wells
                                 elif gtype == "control":
                                     control = wells
+                            
                         if infected is not None and treated is not None and control is not None:
                             df_infected = filtered_df[filtered_df['Well'].isin(infected)]
                             df_treated = filtered_df[filtered_df['Well'].isin(treated)]
@@ -423,13 +467,13 @@ def register_main_callbacks(app):
                 else:
                     # Normalisation standard pour chaque groupe
                     manual_groups = []
-                    for wells, gtype in zip(selected_groups, selected_types):
+                    for wells, gtype,concentration, unit in zip(selected_groups, selected_types,selected_concentrations,selected_unit):
                         if wells:
-                            group_assignments.append({"wells": wells, "type": gtype})
+                            group_assignments.append({"wells": wells, "type": gtype, "concentration": concentration, "unit": unit})
                             group_df = filtered_df[filtered_df['Well'].isin(wells)]
                             if not group_df.empty:
                                 agg_df = group_df.groupby(['hours', 'Frequency'])[norm_method].mean().reset_index()
-                                agg_df['Well'] = f"Group ({gtype}): " + ", ".join(wells)
+                                agg_df['Well'] = f"Group ({gtype}): " + ", ".join(wells)+f" ({concentration}" +f"{unit})"
                                 manual_groups.append(agg_df)
                     if manual_groups:
                         aggregated_df = pd.concat(manual_groups, ignore_index=True)
@@ -554,55 +598,93 @@ def apply_group_averaging(df, groups, norm_method):
 
 import plotly.graph_objects as go
 from scipy.signal import savgol_filter
+import numpy as np
 
-def generate_plot(df, norm_method, std_scale=1.0, data_resolution=1, window_length=51, polyorder=3):
-    """Génère la figure Plotly en fonction des données, de la méthode de normalisation et des paramètres d'affichage."""
+
+import plotly.colors
+
+
+import pandas as pd
+import numpy as np
+import plotly.graph_objects as go
+import plotly.colors
+from scipy.interpolate import interp1d
+from scipy.signal import savgol_filter
+
+def generate_plot(df, norm_method, std_scale=1.0, data_resolution=1, window_length=51, polyorder=5):
+
     fig = go.Figure()
     colors = plotly.colors.qualitative.Dark24
+
+    def sample_points_for_error_bars(well_data, time_interval=2):
+        """Sélectionne des points pour les barres d'erreur."""
+        sampled_rows = []
+        last_time = None
+        for _, row in well_data.iterrows():
+            time_val = row['hours']
+            if last_time is None or (time_val - last_time) >= time_interval:
+                sampled_rows.append(row)
+                last_time = time_val
+        return pd.DataFrame(sampled_rows) if sampled_rows else well_data.iloc[[0]]
 
     for idx, well in enumerate(df['Well'].unique()):
         well_data = df[df['Well'] == well].sort_values('hours')
 
-        # Appliquer un lissage de Savitzky-Golay
-        well_data[norm_method] = savgol_filter(well_data[norm_method], window_length, polyorder)
+        # Arrondir les heures à 5 minutes près
+        well_data['hours'] = (well_data['hours'] / (5 / 60)).round() * (5 / 60)
 
-        # Échantillonnage des données si nécessaire
-        if data_resolution > 1:
-            well_data = well_data.iloc[::data_resolution]
+        # Supprimer les doublons après l'arrondi
+        well_data = well_data.drop_duplicates(subset=['hours'])
+
+        # Générer une grille de temps commune régulière
+        common_time = np.linspace(well_data['hours'].min(), well_data['hours'].max(), num=len(well_data) * 2)
+
+        # Interpolation linéaire pour lisser les données
+        interp_func = interp1d(well_data['hours'], well_data[norm_method], kind='linear', fill_value="extrapolate")
+        well_data_interp = pd.DataFrame({'hours': common_time, norm_method: interp_func(common_time)})
+
+        # Ajuster la taille de la fenêtre pour Savitzky-Golay
+        window_length = min(window_length, len(well_data_interp))
+
+        # Appliquer le filtre Savitzky-Golay pour lisser
+        if len(well_data_interp) >= window_length:
+            well_data_interp[norm_method] = savgol_filter(well_data_interp[norm_method], window_length, polyorder)
+
+        # Échantillonnage des données pour éviter trop de points affichés
+        well_data_interp = well_data_interp.iloc[::data_resolution]
 
         color = colors[idx % len(colors)]
 
+        # Calcul des barres d'erreur (écart entre points successifs)
+        diff = np.abs(np.diff(well_data_interp[norm_method], prepend=well_data_interp[norm_method].iloc[0]))
+        error_values = diff * std_scale
+
+        # Tracé de la courbe principale
         fig.add_trace(go.Scatter(
-            x=well_data['hours'],
-            y=well_data[norm_method],
+            x=well_data_interp['hours'],
+            y=well_data_interp[norm_method],
             name=well,
             mode='lines',
             line=dict(width=2, color=color),
         ))
 
-        std = well_data[norm_method].std() * std_scale
-        upper_bound = well_data[norm_method] + std
-        lower_bound = well_data[norm_method] - std
-        hex_color = color.lstrip('#')
-        rgb = tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
-        fillcolor = f'rgba({rgb[0]}, {rgb[1]}, {rgb[2]}, 0.2)'
-
-        fig.add_trace(go.Scatter(
-            x=well_data['hours'],
-            y=upper_bound,
-            mode='lines',
-            line=dict(width=0),
-            showlegend=False
-        ))
-        fig.add_trace(go.Scatter(
-            x=well_data['hours'],
-            y=lower_bound,
-            mode='lines',
-            line=dict(width=0),
-            fill='tonexty',
-            fillcolor=fillcolor,
-            showlegend=False
-        ))
+        # Ajout des barres d'erreur
+        if len(well_data_interp) > 1:
+            error_points = sample_points_for_error_bars(well_data_interp, time_interval=2)
+            fig.add_trace(go.Scatter(
+                x=error_points['hours'],
+                y=error_points[norm_method],
+                mode='markers',
+                marker=dict(size=8, color=color),
+                error_y=dict(
+                    type='data',
+                    array=error_values[:len(error_points)],
+                    visible=True,
+                    thickness=1.5,
+                    width=3
+                ),
+                showlegend=False
+            ))
 
     fig.update_layout(
         template='plotly_white',
