@@ -1,4 +1,4 @@
-p# app.py
+# app.py
 import dash
 from dash import html, dcc, Input, Output
 from app_instance import app  # Import app and cache from app_instance
