@@ -43,3 +43,5 @@ app/
 - **Victor DUSSAUSSOIS**
 - **Bilal BOUSSARI**
 - **William SAVRE**
+
+> [Présentation de projet](https://www.canva.com/design/DAGt63vEi4Y/Olky_ElUDvMrCBJ_iYXuxA/edit?utm_content=DAGt63vEi4Y&utm_campaign=designshare&utm_medium=link2&utm_source=sharebutton)
