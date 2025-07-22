@@ -8,7 +8,7 @@ Développer une application de visualisation et d'analyse de courbes de spectros
    1. https://github.com/WladimirLct/impedence-normalization/archive/refs/heads/main.zip
 2. **Décompresser** l'archive
 3. **Double-cliquer** sur le fichier `Installer` et attendre que la fenêtre se ferme automatiquement
-4. **Double-cliquer** sur le fichier `Lancer`
+4. **Double-cliquer** sur le fichier `Lancer`, une page web va se lancer automatiquement sur l'url `http://localhost:8050`
 -> **Installation terminée**
 
 ## Conseils d'utilisation
@@ -23,8 +23,6 @@ Développer une application de visualisation et d'analyse de courbes de spectros
 (.venv/)             # Contient l'environnement python et les librairies
 (tmp/)               # Contient les fichiers temporaires avec les informations sur les graphiques
 (normalizations/)    # Contient les normalisations de max. 20 expériences déjà lancées
-
-scripts/             # Contient les fichiers scripts d'installation et de lancement
 
 app/
 ├── assets/          # Contient toutes les icônes
