@@ -1,0 +1,16 @@
+[project]
+name = "bioimpedance-analyzer"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "dash>=3.0.4",
+    "dash-bootstrap-components>=2.0.3",
+    "kaleido>=1.0.0",
+    "matplotlib>=3.10.3",
+    "pandas>=2.2.3",
+    "plotly[express]>=6.1.1",
+    "polars>=1.30.0",
+    "scipy>=1.15.3",
+]

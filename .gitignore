@@ -1,7 +1,12 @@
-data/*
-.ipynb_checkpoints/*
-__pycache__/*
-app/cache/*
-app/__pycache__/*
-app/.ipynb_checkpoints/*
-*/analysis_results/*.csv
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+tmp
+normalizations
