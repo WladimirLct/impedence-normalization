@@ -48,16 +48,19 @@ def on_page_load(url_path, load_info, norm_info):
         update_well_list(cache["data"])
         return '/analysis', no_update, no_update
 
+    num_workers = max(2, os.cpu_count() - 2)
+
     if not load_i["started"]:
         load_i, norm_i = get_base_info(), get_base_info()
         load_i["started"] = True
-        load_files(num_workers = 8)
+        # use the cpu count to determine the number of workers
+        load_files(num_workers = num_workers)
 
     if load_i["finished"]:
         if (len(loading_data) != len(cache["paths"])):
             load_i, norm_i = get_base_info(), get_base_info()
             load_i["started"] = True
-            load_files(num_workers = 8)
+            load_files(num_workers = num_workers)
 
     return no_update, load_i, norm_i
     
@@ -107,7 +110,6 @@ def normalize(load_info, norm_info):
 
     if norm_i is None:
         norm_i = get_base_info()
-
 
     if not norm_i["started"] and load_i["finished"]:
         with loading_data_lock:

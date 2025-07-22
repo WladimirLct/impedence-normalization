@@ -19,7 +19,7 @@ def populate_control_options(pathname):
     """Populate normalization and frequency options from data"""
     
     if pathname != '/analysis':
-        return [], [], no_update, no_update
+        return [], [], no_update, no_update, no_update
     
     raw_data = cache.get("data")
     if raw_data is None or raw_data.empty:

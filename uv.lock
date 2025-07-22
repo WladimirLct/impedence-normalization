@@ -25,7 +25,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "dash", specifier = ">=3.0.4" },
+    { name = "dash", specifier = "==3.0.4" },
     { name = "dash-bootstrap-components", specifier = ">=2.0.3" },
     { name = "kaleido", specifier = ">=1.0.0" },
     { name = "matplotlib", specifier = ">=3.10.3" },
